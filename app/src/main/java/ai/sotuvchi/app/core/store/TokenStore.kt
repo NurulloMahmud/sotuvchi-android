@@ -14,7 +14,9 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 /** Plain key-value storage for the few things the app remembers. */
 interface KeyValueStore {
@@ -104,9 +106,10 @@ class PlainSecretBox : SecretBox {
 
 /** The session token: AES-GCM ciphertext from the Keystore key, kept in DataStore. */
 class TokenStore(private val store: KeyValueStore, private val box: SecretBox, private val key: String) {
-    suspend fun read(): String? = store.get(key)?.let { box.decrypt(it) }
+    // Keystore work is off the main thread.
+    suspend fun read(): String? = store.get(key)?.let { stored -> withContext(Dispatchers.Default) { box.decrypt(stored) } }
 
-    suspend fun write(token: String) = store.set(key, box.encrypt(token))
+    suspend fun write(token: String) = store.set(key, withContext(Dispatchers.Default) { box.encrypt(token) })
 
     suspend fun clear() = store.remove(key)
 }

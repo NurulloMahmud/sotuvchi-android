@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -20,6 +22,22 @@ android {
         buildConfigField("String", "API_URL", "\"https://sotuvchi.ai/api\"")
     }
 
+    // Upload key for Play: put the details in keystore.properties (not committed). Without it the
+    // release build stays unsigned. `-PsignWithDebug` signs a release build with the debug key,
+    // only to try the shrunk app on an emulator.
+    val keystoreFile = rootProject.file("keystore.properties")
+    val keystore = Properties().apply { if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) } }
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            create("upload") {
+                storeFile = rootProject.file(keystore.getProperty("storeFile"))
+                storePassword = keystore.getProperty("storePassword")
+                keyAlias = keystore.getProperty("keyAlias")
+                keyPassword = keystore.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Debug builds can point at the mock server: see Tools/mock-server
@@ -31,6 +49,11 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "DEBUG_OVERRIDES", "false")
+            signingConfig = when {
+                project.hasProperty("signWithDebug") -> signingConfigs.getByName("debug")
+                keystoreFile.exists() -> signingConfigs.getByName("upload")
+                else -> null
+            }
         }
     }
 

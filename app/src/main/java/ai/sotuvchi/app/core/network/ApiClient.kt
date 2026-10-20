@@ -5,7 +5,9 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
@@ -148,12 +150,19 @@ class ApiClient(
         val call = http.newCall(builder.build())
         call.timeout().timeout(60, TimeUnit.SECONDS)
         val response = execute(call)
-        response.use {
-            if (!it.isSuccessful) {
-                if (it.code == 401 && isOwnHost(url)) onUnauthorized?.invoke()
-                throw ApiError.from(it.code, null)
+        // Reading the body can block, so it stays off the main thread.
+        return withContext(Dispatchers.IO) {
+            response.use {
+                if (!it.isSuccessful) {
+                    if (it.code == 401 && isOwnHost(url)) onUnauthorized?.invoke()
+                    throw ApiError.from(it.code, null)
+                }
+                try {
+                    it.body.bytes()
+                } catch (io: IOException) {
+                    throw ApiError.from(io)
+                }
             }
-            return it.body.bytes()
         }
     }
 
@@ -174,8 +183,14 @@ class ApiClient(
         val call = http.newCall(buildRequest(request))
         call.timeout().timeout(request.timeoutSeconds, TimeUnit.SECONDS)
         val response = execute(call)
-        response.use {
-            return RawResponse(it.code, it.body.string(), it.header("Retry-After"))
+        return withContext(Dispatchers.IO) {
+            response.use {
+                try {
+                    RawResponse(it.code, it.body.string(), it.header("Retry-After"))
+                } catch (io: IOException) {
+                    throw ApiError.from(io)
+                }
+            }
         }
     }
 
@@ -187,15 +202,23 @@ class ApiClient(
         val call = http.newCall(builder.build())
         call.timeout().timeout(request.timeoutSeconds, TimeUnit.SECONDS)
         val response = execute(call)
-        response.use {
-            val text = it.body.string()
-            if (!it.isSuccessful) {
-                val message = runCatching { ApiJson.json.decodeFromString(ErrorBody.serializer(), text).error }.getOrNull()
-                if (it.code == 401) onUnauthorized?.invoke()
-                throw ApiError.from(it.code, message)
+        // Reading the body can block, so it stays off the main thread.
+        val (status, text) = withContext(Dispatchers.IO) {
+            response.use {
+                try {
+                    it.code to it.body.string()
+                } catch (io: IOException) {
+                    throw ApiError.from(io)
+                }
             }
-            return text
         }
+        if (status !in 200..299) {
+            val message = runCatching { ApiJson.json.decodeFromString(ErrorBody.serializer(), text).error }.getOrNull()
+            android.util.Log.w("SotuvchiApi", "${request.method} ${request.path} answered $status")
+            if (status == 401) onUnauthorized?.invoke()
+            throw ApiError.from(status, message)
+        }
+        return text
     }
 
     private suspend fun execute(call: Call): Response = suspendCancellableCoroutine { continuation ->
@@ -203,6 +226,7 @@ class ApiClient(
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 if (continuation.isCancelled) return
+                android.util.Log.w("SotuvchiApi", "${call.request().method} ${call.request().url} failed: $e")
                 continuation.resumeWithException(ApiError.from(e))
             }
 

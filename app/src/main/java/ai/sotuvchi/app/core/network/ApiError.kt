@@ -85,7 +85,10 @@ val Throwable.userMessage: String
     get() = when (this) {
         is ApiError -> userMessage
         is IOException -> ApiError.from(this).userMessage
-        else -> message ?: L("Something went wrong on our side. Try again in a moment.")
+        else -> {
+            android.util.Log.w("SotuvchiError", "Unexpected error", this)
+            message ?: L("Something went wrong on our side. Try again in a moment.")
+        }
     }
 
 val Throwable.isCancellation: Boolean get() = this is CancellationException

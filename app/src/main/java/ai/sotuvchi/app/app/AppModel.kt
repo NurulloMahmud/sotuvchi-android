@@ -102,7 +102,7 @@ class AppModel(val container: AppContainer) : ViewModel() {
     val ordersFilter: StateFlow<OrderFilter> = _ordersFilter.asStateFlow()
 
     /** Orders seen in lists, so a detail screen has something to show while it refreshes. */
-    val orderCache = HashMap<String, Order>()
+    val orderCache = java.util.concurrent.ConcurrentHashMap<String, Order>()
 
     /** Bumped when products or categories change, so the catalogue list reloads. */
     private val _catalogRevision = MutableStateFlow(0)
@@ -113,7 +113,7 @@ class AppModel(val container: AppContainer) : ViewModel() {
     }
 
     /** Products seen in the catalogue list, so the editor can open one without asking the server again. */
-    val productCache = HashMap<String, Product>()
+    val productCache = java.util.concurrent.ConcurrentHashMap<String, Product>()
 
     private var pollJob: Job? = null
     private var seenNotificationIds: Set<String> = emptySet()
