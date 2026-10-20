@@ -164,11 +164,18 @@ class AccountUiTest {
     }
 
     private fun waitForText(text: String, timeoutMs: Long = 8_000) {
-        compose.waitUntil(timeoutMs) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(timeoutMs) { exists { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     }
 
     private fun waitForTag(tag: String, timeoutMs: Long = 8_000) {
-        compose.waitUntil(timeoutMs) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(timeoutMs) { exists { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() } }
+    }
+
+    /** Right after a launch there is no compose hierarchy yet; that counts as "not there yet". */
+    private fun exists(check: () -> Boolean): Boolean = try {
+        check()
+    } catch (_: IllegalStateException) {
+        false
     }
 
     private fun waitUntilHandoffAsked(path: String): Boolean {
