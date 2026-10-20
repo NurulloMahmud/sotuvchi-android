@@ -1,4 +1,4 @@
-"""Local stand-in for the Sotuvchi API, for developing and testing the iOS app
+"""Local stand-in for the Sotuvchi API, for developing and testing the app
 without a real backend or inbox.
 
 It follows the shapes in mobile-api.md and keeps state in memory. Sign-in uses
@@ -19,8 +19,9 @@ UI tests drive the mock through /mock/* (no session needed):
     GET  /mock/code?email=  the last code sent to that email
     GET  /mock/handoffs     web sign-in links made, and whether a browser used them
 
-Point a Debug build at it:
-    xcrun simctl spawn booted defaults write ai.sotuvchi.app apiURL http://localhost:8787/api
+Point a debug build on the emulator at it:
+    adb reverse tcp:8787 tcp:8787
+    adb shell am start -n ai.sotuvchi.app/.MainActivity --es apiURL http://localhost:8787/api
 
 Standard library only.
 """

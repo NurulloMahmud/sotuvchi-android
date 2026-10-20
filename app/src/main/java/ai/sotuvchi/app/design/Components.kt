@@ -214,7 +214,7 @@ object Initials {
      * before the @, so "makhammatoffb@gmail.com" gives "M".
      */
     fun of(name: String?): String? {
-        val local = name?.split("@")?.firstOrNull() ?: return null
+        val local = name?.split("@")?.firstOrNull { it.isNotEmpty() } ?: return null
         val letters = local
             .split(' ', '_', '.', '-')
             .filter { it.isNotEmpty() }
