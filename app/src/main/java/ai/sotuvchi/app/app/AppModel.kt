@@ -8,8 +8,10 @@ import ai.sotuvchi.app.core.model.AppNotification
 import ai.sotuvchi.app.core.model.DashboardStats
 import ai.sotuvchi.app.core.model.NotificationBadges
 import ai.sotuvchi.app.core.model.NotificationFeed
+import ai.sotuvchi.app.core.model.Order
 import ai.sotuvchi.app.core.model.OrderFilter
 import ai.sotuvchi.app.core.model.PlanStatus
+import ai.sotuvchi.app.core.model.Product
 import ai.sotuvchi.app.core.model.RangePreset
 import ai.sotuvchi.app.core.model.Store
 import ai.sotuvchi.app.core.model.WorkspaceRole
@@ -96,6 +98,20 @@ class AppModel(val container: AppContainer) : ViewModel() {
     /** Orders tab filter, so "Review orders" on Home lands on the right tab. */
     private val _ordersFilter = MutableStateFlow(OrderFilter.REVIEW)
     val ordersFilter: StateFlow<OrderFilter> = _ordersFilter.asStateFlow()
+
+    /** Orders seen in lists, so a detail screen has something to show while it refreshes. */
+    val orderCache = HashMap<String, Order>()
+
+    /** Bumped when products or categories change, so the catalogue list reloads. */
+    private val _catalogRevision = MutableStateFlow(0)
+    val catalogRevision: StateFlow<Int> = _catalogRevision.asStateFlow()
+
+    fun bumpCatalog() {
+        _catalogRevision.update { it + 1 }
+    }
+
+    /** Products seen in the catalogue list, so the editor can open one without asking the server again. */
+    val productCache = HashMap<String, Product>()
 
     private var pollJob: Job? = null
     private var seenNotificationIds: Set<String> = emptySet()

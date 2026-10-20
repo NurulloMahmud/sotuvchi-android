@@ -156,6 +156,6 @@ object Countdown {
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60
         return if (hours > 0) L("{hours} h {minutes} min", mapOf("hours" to hours, "minutes" to minutes))
-        else L("{minutes} min", mapOf("minutes" to minutes))
+        else L("{minutes} min", mapOf("minutes" to maxOf(minutes, 1)))
     }
 }

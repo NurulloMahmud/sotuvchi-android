@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.UnfoldMore
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,6 +31,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,6 +117,26 @@ fun InputField(
     )
 }
 
+/** The switch on its own, in the app's colors. */
+@Composable
+fun SSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Theme.colors.primary) {
+    val colors = Theme.colors
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        enabled = enabled,
+        modifier = modifier,
+        colors = SwitchDefaults.colors(
+            checkedTrackColor = tint,
+            checkedThumbColor = if (tint == colors.primary) colors.onPrimary else Color.White,
+            checkedBorderColor = tint,
+            uncheckedTrackColor = colors.surfaceAlt,
+            uncheckedThumbColor = colors.inkSubtle,
+            uncheckedBorderColor = colors.hairline,
+        ),
+    )
+}
+
 /** Toggle row used in settings cards. */
 @Composable
 fun ToggleRow(
@@ -168,4 +198,71 @@ fun MoneyField(
             Text(Money.currencyLabel, style = Theme.type.bodySmall, color = Theme.colors.inkSubtle, modifier = Modifier.padding(start = Space.xs))
         },
     )
+}
+
+/** Search box with a magnifier, for lists. */
+@Composable
+fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+    InputField(
+        value = value,
+        onValueChange = onChange,
+        placeholder = placeholder,
+        modifier = modifier,
+        trailing = {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Outlined.Search,
+                contentDescription = null,
+                tint = Theme.colors.inkSubtle,
+                modifier = Modifier.padding(start = Space.xs).size(20.dp),
+            )
+        },
+    )
+}
+
+/** A field that opens a menu of choices instead of taking text. */
+@Composable
+fun <T> SelectField(
+    text: String,
+    options: List<Pair<T, String>>,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    var open by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val colors = Theme.colors
+    val shape = RoundedCornerShape(Radius.md)
+    Box(modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 46.dp)
+                .background(colors.surface, shape)
+                .border(BorderStroke(1.dp, colors.hairline), shape)
+                .clickable(enabled = enabled) { open = true }
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text, style = Theme.type.body, color = colors.ink, modifier = Modifier.weight(1f))
+            Icon(
+                Icons.Outlined.UnfoldMore,
+                contentDescription = null,
+                tint = colors.inkSubtle,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = colors.surface,
+            shadowElevation = 0.dp,
+            border = BorderStroke(1.dp, colors.hairline),
+        ) {
+            for ((value, label) in options) {
+                DropdownMenuItem(
+                    text = { Text(label, style = Theme.type.body, color = colors.ink) },
+                    onClick = { open = false; onSelect(value) },
+                )
+            }
+        }
+    }
 }
