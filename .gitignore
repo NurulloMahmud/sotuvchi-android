@@ -1,0 +1,26 @@
+# Ignore every file that starts with a dot, except this .gitignore
+.*
+!.gitignore
+
+# Gradle and Android build outputs
+build/
+/captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Local configuration (SDK path, signing)
+local.properties
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+*.iml
+/app/release/
+
+# Mock server and tooling output
+__pycache__/
+/Tools/out/
