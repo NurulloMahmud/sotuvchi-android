@@ -16,6 +16,9 @@ APP_ID="ai.sotuvchi.app"
 
 ./gradlew --console=plain :app:installDebug
 
+# A running app has already read its API address; start it fresh so the new one applies.
+"$ADB" shell am force-stop "$APP_ID"
+
 if [[ -n "${API_URL:-}" ]]; then
   # The emulator reaches the Mac's localhost through adb reverse.
   "$ADB" reverse tcp:8787 tcp:8787 >/dev/null
