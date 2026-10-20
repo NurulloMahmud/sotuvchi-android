@@ -31,6 +31,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.time.Instant
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -176,15 +178,14 @@ class AppModel(val container: AppContainer) : ViewModel() {
             _state.update { it.copy(email = confirmed) }
             kv.set(config.emailKey, confirmed)
         }
-        finishSignIn(signedIn.token)
-        _state.update { it.copy(isNewAccount = signedIn.isNewUser) }
+        finishSignIn(signedIn.token, isNewUser = signedIn.isNewUser)
     }
 
     /**
      * Finishes sign-in with a session token, from a verified code or from the
      * web password screen (the same kind of database session).
      */
-    suspend fun finishSignIn(token: String) {
+    suspend fun finishSignIn(token: String, isNewUser: Boolean = false) {
         api.setSessionToken(token)
         try {
             loadAccount()
@@ -193,11 +194,13 @@ class AppModel(val container: AppContainer) : ViewModel() {
             throw error
         }
         container.tokenStore.write(token)
-        _state.update { it.copy(phase = Phase.SignedIn) }
+        // One update, so the screen that called this is not left waiting for a step after it is gone.
+        _state.update { it.copy(phase = Phase.SignedIn, isNewAccount = isNewUser) }
     }
 
     /** Forgets the session right away, then ends it on the server. */
-    suspend fun signOut() {
+    suspend fun signOut() = withContext(NonCancellable) {
+        // The screen that asked leaves as soon as the session is cleared; the call to the server must still go out.
         val token = api.sessionToken
         clearSession()
         if (token != null) auth.logout(token)
@@ -209,12 +212,15 @@ class AppModel(val container: AppContainer) : ViewModel() {
      */
     suspend fun deleteAccount() {
         api.deleteAccount()
-        clearSession()
-        kv.remove(config.emailKey)
-        kv.remove(config.roleKey)
-        _state.update { it.copy(email = null) }
-        container.imageLoader?.memoryCache?.clear()
-        show(Toast(Toast.Kind.Success, L("Your account was deleted.")))
+        // The delete screen leaves as soon as the session is cleared; finish the cleanup regardless.
+        withContext(NonCancellable) {
+            // Forget the saved email and role first, so sign-in never shows them.
+            kv.remove(config.emailKey)
+            kv.remove(config.roleKey)
+            container.imageLoader?.memoryCache?.clear()
+            clearSession(keepEmail = false)
+            show(Toast(Toast.Kind.Success, L("Your account was deleted.")))
+        }
     }
 
     private fun sessionExpired() {
@@ -225,7 +231,7 @@ class AppModel(val container: AppContainer) : ViewModel() {
         }
     }
 
-    private suspend fun clearSession() {
+    private suspend fun clearSession(keepEmail: Boolean = true) {
         stopPolling()
         container.tokenStore.clear()
         api.setSessionToken(null)
@@ -233,7 +239,7 @@ class AppModel(val container: AppContainer) : ViewModel() {
         hasLoadedFeedOnce = false
         _ordersFilter.value = OrderFilter.REVIEW
         _state.update {
-            AppState(phase = Phase.SignedOut, email = it.email, toast = it.toast)
+            AppState(phase = Phase.SignedOut, email = if (keepEmail) it.email else null, toast = it.toast)
         }
     }
 

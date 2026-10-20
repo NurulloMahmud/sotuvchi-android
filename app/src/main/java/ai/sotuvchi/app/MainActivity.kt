@@ -4,6 +4,8 @@ import ai.sotuvchi.app.app.AppConfig
 import ai.sotuvchi.app.app.AppContainer
 import ai.sotuvchi.app.app.AppModel
 import ai.sotuvchi.app.app.RootContent
+import ai.sotuvchi.app.core.l10n.AppLanguage
+import ai.sotuvchi.app.core.l10n.Localizer
 import ai.sotuvchi.app.core.store.DataStoreKeyValueStore
 import ai.sotuvchi.app.design.SotuvchiTheme
 import android.content.Intent
@@ -23,12 +25,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyTestLanguage(intent)
         enableEdgeToEdge()
         setContent {
             SotuvchiTheme {
                 RootContent(model)
             }
         }
+    }
+
+    /** UI tests launch with a fixed language (not saved), so their texts do not depend on the device. */
+    private fun applyTestLanguage(intent: Intent?) {
+        if (!BuildConfig.DEBUG_OVERRIDES || intent?.getBooleanExtra("uiTesting", false) != true) return
+        AppLanguage.fromCode(intent.getStringExtra("language"))?.let { Localizer.set(it) }
     }
 
     /**
