@@ -398,6 +398,12 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return self.wfile.write(data)
 
+        if method == "GET" and path == "/login":
+            # Stands in for the website's password login (the review account): signing in sets the
+            # session cookie, which the app takes and uses as its Bearer token.
+            SESSION_STATE["revoked"] = False
+            return self.send_html("Signed in with a password", "Mock review login",
+                                  headers={"Set-Cookie": f"authjs.session-token={SESSION}; Path=/; HttpOnly"})
         if path.startswith("/mock/"):
             return self.control(method, path, query)
         if path.startswith("/api/mobile/auth/"):
