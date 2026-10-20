@@ -19,7 +19,9 @@ APP_ID="ai.sotuvchi.app"
 if [[ -n "${API_URL:-}" ]]; then
   # The emulator reaches the Mac's localhost through adb reverse.
   "$ADB" reverse tcp:8787 tcp:8787 >/dev/null
-  "$ADB" shell am start -n "$APP_ID/.MainActivity" --es apiURL "$API_URL"
+  "$ADB" shell "am start -n $APP_ID/.MainActivity --es apiURL '$API_URL'"
 else
-  "$ADB" shell am start -n "$APP_ID/.MainActivity" --es apiURL ""
+  # An empty value clears the saved override. It is quoted for the shell on the device,
+  # which would otherwise drop the empty argument.
+  "$ADB" shell "am start -n $APP_ID/.MainActivity --es apiURL ''"
 fi
