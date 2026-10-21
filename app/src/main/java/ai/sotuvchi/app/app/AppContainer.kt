@@ -23,6 +23,8 @@ import coil3.request.crossfade
 data class AppConfig(
     val apiUrl: String = BuildConfig.API_URL,
     val keyPrefix: String = "",
+    /** Debug and QA builds name the server they talk to in a banner. */
+    val showServerBanner: Boolean = BuildConfig.DEBUG_OVERRIDES,
 ) {
     val sessionTokenKey: String get() = keyPrefix + "session-token"
     val emailKey: String get() = keyPrefix + "account.email"

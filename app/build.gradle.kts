@@ -15,7 +15,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Production API root. Endpoint paths are relative to it, so moving to
         // /api/v1 is a one-line change. Web pages use the same host's root.
@@ -56,6 +56,21 @@ android {
             }
         }
     }
+
+    // Same shrinking as release, but debug-signed with the API override and the server banner on:
+    // `make ui-test-qa` runs the whole UI suite against the minified code with the mock.
+    buildTypes.create("qa") {
+        initWith(buildTypes.getByName("release"))
+        matchingFallbacks += "release"
+        signingConfig = signingConfigs.getByName("debug")
+        buildConfigField("boolean", "DEBUG_OVERRIDES", "true")
+        // -PnoQaKeeps drops the keep rules that let the test APK run, to try the shrinker at full strength by hand.
+        if (!providers.gradleProperty("noQaKeeps").isPresent) proguardFile("proguard-qa-rules.pro")
+        testProguardFiles("proguard-test-rules.pro")
+    }
+
+    // Instrumented tests run against this build type: -PtestBuild=qa for the shrunk build.
+    testBuildType = providers.gradleProperty("testBuild").getOrElse("debug")
 
     buildFeatures {
         compose = true
@@ -106,6 +121,7 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    "qaImplementation"(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

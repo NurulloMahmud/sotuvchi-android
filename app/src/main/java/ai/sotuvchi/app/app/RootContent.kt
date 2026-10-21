@@ -72,6 +72,9 @@ fun RootContent(model: AppModel) {
                 Phase.SignedIn -> MainScaffold(model)
             }
             ToastHost(toast = state.toast, onDismiss = model::dismissToast, modifier = Modifier.align(Alignment.TopCenter))
+            if (model.container.config.showServerBanner) {
+                ServerBanner(model.container.config.apiUrl, Modifier.align(Alignment.TopCenter))
+            }
         }
     }
 }

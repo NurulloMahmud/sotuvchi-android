@@ -4,6 +4,7 @@ import ai.sotuvchi.app.app.AppConfig
 import ai.sotuvchi.app.app.AppContainer
 import ai.sotuvchi.app.app.AppModel
 import ai.sotuvchi.app.app.RootContent
+import ai.sotuvchi.app.app.serverLabel
 import ai.sotuvchi.app.core.l10n.AppLanguage
 import ai.sotuvchi.app.core.l10n.Localizer
 import ai.sotuvchi.app.core.store.DataStoreKeyValueStore
@@ -44,7 +45,9 @@ class MainActivity : ComponentActivity() {
      * Debug builds can point at another server (for example the mock in
      * Tools/mock-server) with `--es apiURL <url>`; the choice is kept until
      * another one is given, and an empty value clears it. UI tests launch with
-     * `--ez uiTesting true`, which keeps their session under separate keys.
+     * `--ez uiTesting true`, which keeps their session under separate keys. Debug and QA
+     * builds show a banner naming the server; `--ez hideBanner true` hides it for a UI test
+     * run against a local server (store screenshots).
      */
     private fun resolveConfig(intent: Intent?): AppConfig {
         if (!BuildConfig.DEBUG_OVERRIDES) return AppConfig()
@@ -60,6 +63,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         val valid = apiUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-        return AppConfig(apiUrl = valid ?: BuildConfig.API_URL, keyPrefix = if (uiTesting) "uitest." else "")
+        val url = valid ?: BuildConfig.API_URL
+        // The banner can only be hidden for a test run against a local server (store screenshots).
+        val hideBanner = uiTesting && intent?.getBooleanExtra("hideBanner", false) == true && !serverLabel(url).second
+        return AppConfig(apiUrl = url, keyPrefix = if (uiTesting) "uitest." else "", showServerBanner = !hideBanner)
     }
 }
