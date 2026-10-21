@@ -311,7 +311,7 @@ private fun KpiGrid(sales: SalesStats, ordersToReview: Int, model: AppModel) {
 @Composable
 private fun ChartCard(sales: SalesStats) {
     val days = (sales.daily ?: emptyList()).mapNotNull { entry -> entry.day?.let { it to (entry.revenue ?: 0) } }
-    Card {
+    Card(modifier = Modifier.testTag("home.chart")) {
         Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
             Text(L("Revenue"), style = Theme.type.cardTitle, color = Theme.colors.ink)
             if (days.isEmpty() || days.all { it.second == 0 }) {

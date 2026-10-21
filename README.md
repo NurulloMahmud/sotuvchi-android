@@ -36,10 +36,13 @@ Dependencies, all current stable and few: Compose (BOM) with Material 3 as a bas
 make build        # debug APK
 make test         # translation check + JVM unit tests
 make ui-test      # Compose UI tests against the mock API, on the running emulator
-make run          # build, install and launch against production
-make mock         # terminal 1: the mock API on http://localhost:8787
-make run-mock     # terminal 2: build, install and launch against the mock
-make bundle       # release app bundle for Google Play
+make ui-test-qa   # the same suite against the shrunk (R8) QA build
+make run          # build, install and launch against the local mock API (starts it)
+make run-prod     # the live server, after typing "yes"
+make mock         # the mock API on http://localhost:8787, in the foreground
+make bundle       # signed release app bundle for Google Play, then checked
+make screenshots  # Play Store phone screenshots (en, ru, uz) from the mock's sample data
+make graphics     # Play Store icon and feature graphics (needs Pillow)
 make clean
 ```
 
@@ -56,8 +59,7 @@ The Makefile uses Android Studio's JDK (`/Applications/Android Studio.app/Conten
 `Tools/mock-server/mock_server.py` is a standard-library Python stand-in for the API with a sample store, orders, chats, products and team. It also implements the email-code sign-in and prints each code instead of emailing it.
 
 ```bash
-make mock        # terminal 1
-make run-mock    # terminal 2
+make run         # starts the mock if needed, builds, installs and launches (make run-mock is the same)
 ```
 
 Sign in with `owner@zebo.uz` (an existing account) or any other email (a new account), then type the code the mock prints. Deleting the account in the app ends the mock session and forgets every email, so the next sign-in is a new account. Start the mock with `--fail-delete` to see the retry path. `GET /login` stands in for the website's password login (it sets the session cookie), so "Sign in with a password" can be tried too.
@@ -72,7 +74,7 @@ The emulator reaches the Mac's mock through `adb reverse tcp:8787 tcp:8787` (the
 | Debug override | `adb shell am start -n ai.sotuvchi.app/.MainActivity --es apiURL <url>` (debug builds only). The choice is kept until another is given; an empty value goes back to the default. | none |
 | Release signing | `keystore.properties` in this folder (git-ignored): `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Without it the release build stays unsigned. | unsigned |
 
-The debug build keeps the API address it was launched with, and the app's data is wiped by `make ui-test` (the test run uninstalls the app), so launch with `--es apiURL` (or `make run-mock`) after a test run. A debug build with no override talks to production.
+The debug build keeps the API address it was launched with. Debug and QA builds show a strip across the status bar that names the server (amber "TEST BUILD - MOCK localhost:8787", red "TEST BUILD - LIVE SERVER sotuvchi.ai"), so a test build on production cannot go unnoticed; release builds have neither the banner nor the override. `make run` always uses the mock, and `make run-prod` asks you to type "yes" first. The UI tests uninstall the app, which wipes its saved address; `make ui-test` writes the address of the last `make run` to `Tools/out/last-api-url` and installs the debug app again with it afterwards. A debug build launched by hand with no `apiURL` extra talks to production, and says so in the banner.
 
 ## How sign-in works
 
@@ -109,7 +111,9 @@ The plan (Sotuvchi Pro) is shown, not sold. More shows whether it is active and 
 - `make ui-test` runs Compose UI tests (`app/src/androidTest`) against the mock on the running emulator. It starts the mock, sets up `adb reverse`, runs the tests and stops the mock. It covers:
   - the server fails the first delete: the user stays signed in and gets Retry, the retry deletes the account, the app returns to sign-in, and the same email then starts a new account;
   - an owner alone in the workspace is told the workspace, stores, orders, chats and Instagram connection go too;
-  - "Open the web dashboard" asks for a one-time link and the browser opens it (checked through the mock's `/mock/handoffs`).
+  - "Open the web dashboard" asks for a one-time link and the browser opens it (checked through the mock's `/mock/handoffs`);
+  - a tour of every screen (Home, orders and a receipt, chats and a thread, products and the editor, stores, team, campaigns, Instagram accounts, notifications) that checks real content from each response shows up.
+- `make ui-test-qa` runs the same suite against the `qa` build type: release-like (R8 code and resource shrinking), debug-signed, with the API override and the banner on. It is what proves the shrunk code decodes JSON and draws every screen. The test APK reuses some library classes from the app, so `app/proguard-qa-rules.pro` keeps androidx and Kotlin whole in that build only. `python3 Tools/qa-smoke.py` tries the QA app at full strength instead (no such keeps) by signing in through the mock and opening every tab with plain adb taps.
 
 The tests drive the mock through its `/mock/*` hooks (reset, make deletes fail, read the last sign-in code, see which web links a browser used) and launch the app with the `uiTesting` extra, which keeps the test session under separate storage keys (`uitest.*`) so a real sign-in on the same device is never touched.
 
@@ -155,12 +159,33 @@ app/src/main/assets/                uz.json, ru.json
 app/src/test/                       JVM unit tests
 app/src/androidTest/                Compose UI tests against the mock API
 app/src/debug/                      debug-only network security config (cleartext to localhost)
-Tools/                              mock API, translation check, run and UI test scripts
+Tools/                              mock API, translation check, run, UI test, bundle check and store picture scripts
+store/                              Google Play listing, data safety, checklist and graphics
 ```
 
 ## Release
 
-`make bundle` builds `app/build/outputs/bundle/release/app-release.aab` (R8 shrinking on). Put the upload key details in `keystore.properties` to have it signed, or sign the bundle yourself. To try the shrunk app on an emulator, install it with `./gradlew :app:installRelease -PsignWithDebug`.
+Everything for Google Play is prepared in this repository; what needs your Play Console account is listed step by step in [store/CHECKLIST.md](store/CHECKLIST.md).
+
+**Version.** `versionName 1.0.0`, `versionCode 1` in `app/build.gradle.kts`. Raise `versionCode` for every upload (Play rejects a repeated one) and `versionName` for a new version.
+
+**Signing.** The app is signed with an upload key. Play App Signing keeps the real app signing key, so a lost upload key can be reset through Play support, but that is slow; back it up. The key is `~/.sotuvchi-signing/sotuvchi-upload.jks` (outside the repository), and `keystore.properties` in this folder (git-ignored, mode 600) holds its path and passwords. To create a new one:
+
+```bash
+keytool -genkeypair -v -keystore ~/.sotuvchi-signing/sotuvchi-upload.jks -storetype PKCS12 -alias sotuvchi-upload \
+  -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Sotuvchi, OU=Mobile, O=Nahl Group Inc., C=US"
+```
+
+then write `storeFile`, `storePassword`, `keyAlias`, `keyPassword` into `keystore.properties`. Never commit either file (`.gitignore` covers `*.jks`, `*.keystore` and `keystore.properties`).
+
+**Bundle.** `make bundle` builds the release app bundle, `app/build/outputs/bundle/release/app-release.aab`, with R8 and resource shrinking, signed with the upload key, and then runs `Tools/check-bundle.py`, which fails the build unless:
+
+- `jarsigner` verifies the signature and the signer is the Sotuvchi upload certificate, not the debug key;
+- the dex has no Compose tooling classes, no API override, no banner switch and no banner text (the debug-only code is compiled out);
+- the manifest is not debuggable, the version is 1.0.0 and the only permission is `INTERNET`;
+- every native library (DataStore and Compose graphics, 8 files for 4 ABIs) has 16 KB aligned segments, which Play requires for apps that target Android 15 or newer.
+
+**Store texts and pictures.** `store/` holds the listing in English, Russian and Uzbek, the data safety answers, the content rating guidance, the reviewer access text, the account deletion text and `graphics/` (icon, feature graphics, phone screenshots). `make screenshots` and `make graphics` rebuild the pictures.
 
 ## Backend work that would improve the app
 

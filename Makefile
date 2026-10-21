@@ -6,7 +6,7 @@ GRADLE = ./gradlew --console=plain
 APP_ID = ai.sotuvchi.app
 MOCK_URL = http://localhost:8787/api
 
-.PHONY: build test ui-test ui-test-qa run run-prod run-mock mock l10n-check bundle clean
+.PHONY: screenshots graphics build test ui-test ui-test-qa run run-prod run-mock mock l10n-check bundle clean
 
 build:
 	$(GRADLE) :app:assembleDebug
@@ -46,6 +46,14 @@ l10n-check:
 bundle:
 	$(GRADLE) :app:bundleRelease
 	python3 Tools/check-bundle.py
+
+# Play Store phone screenshots (en, ru, uz) from the mock's sample data, into store/graphics/screenshots.
+screenshots:
+	ADB='$(ADB)' Tools/store-screenshots.sh
+
+# Play Store icon and feature graphics, into store/graphics.
+graphics:
+	python3 Tools/store-graphics.py
 
 clean:
 	$(GRADLE) clean
